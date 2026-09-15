@@ -51,6 +51,7 @@ npm run dev
 ```
 
 Abra o endereço informado pelo Vite. Por padrão, a interface consome `http://localhost:8080`; para outro ambiente, copie `.env.example` para `.env.local` e altere `VITE_API_URL`.
+Durante o desenvolvimento, o Vite encaminha `/api` para o backend no mesmo endereço da interface. Isso evita bloqueios de cookies e CORS entre `localhost` e `127.0.0.1`.
 
 ## Testes e qualidade
 

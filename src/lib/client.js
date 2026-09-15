@@ -2,9 +2,9 @@ import { formatCep, normalizeCpf } from "./validation";
 
 const SESSION_KEY = "atlas-session-v3";
 const CEP_CACHE = new Map();
-const API_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:8080"
-).replace(/\/$/, "");
+const API_URL = import.meta.env.DEV
+  ? ""
+  : (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
