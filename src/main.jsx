@@ -31,6 +31,28 @@ function showValidationError(setError, message, selector) {
   window.requestAnimationFrame(() => document.querySelector(selector)?.focus());
 }
 
+function Brand() {
+  return (
+    <div className="brand" translate="no">
+      <div className="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" focusable="false">
+          <path
+            d="M16 28s9-8.1 9-15a9 9 0 1 0-18 0c0 6.9 9 15 9 15Z"
+            stroke="currentColor"
+            strokeWidth="2.3"
+            strokeLinejoin="round"
+          />
+          <circle cx="16" cy="13" r="3" fill="currentColor" />
+        </svg>
+      </div>
+      <div>
+        <strong>atlas</strong>
+        <span>gestão de endereços</span>
+      </div>
+    </div>
+  );
+}
+
 class AppErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -111,13 +133,7 @@ function LoginPage({ initialError, onLogin }) {
   return (
     <main className="login-page">
       <section className="login-brand">
-        <div className="brand">
-          <div className="brand-mark">A</div>
-          <div>
-            <strong>atlas</strong>
-            <span>gestão de endereços</span>
-          </div>
-        </div>
+        <Brand />
         <div className="login-copy">
           <p>Endereços certos deixam cada atendimento mais simples.</p>
           <span>Cadastre, organize e mantenha dados confiáveis.</span>
@@ -171,9 +187,14 @@ function LoginPage({ initialError, onLogin }) {
 }
 
 function Dashboard({ session, currentUser, onLogout }) {
-  const [active, setActive] = useState(
-    () => readUrlParam("view") || "overview",
-  );
+  const [active, setActive] = useState(() => {
+    const requested = readUrlParam("view");
+    if (!["overview", "users", "addresses"].includes(requested))
+      return "overview";
+    return currentUser.role !== "ADMIN" && requested === "users"
+      ? "overview"
+      : requested;
+  });
   const [selectedUserId, setSelectedUserId] = useState(currentUser.id);
   const [userModal, setUserModal] = useState(false);
   const [addressModal, setAddressModal] = useState(null);
@@ -212,7 +233,6 @@ function Dashboard({ session, currentUser, onLogout }) {
       setSelectedUserId(user.id);
       setToast("Usuário criado com sucesso.");
     },
-    onError: (reason) => setToast(reason.message),
   });
   const saveAddress = useMutation({
     mutationFn: ({ userId, payload, addressId }) =>
@@ -250,13 +270,7 @@ function Dashboard({ session, currentUser, onLogout }) {
         Pular para o conteúdo
       </a>
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">A</div>
-          <div>
-            <strong>atlas</strong>
-            <span>gestão de endereços</span>
-          </div>
-        </div>
+        <Brand />
         <div className="workspace-label">Workspace principal</div>
         <nav className="nav-list" aria-label="Navegação principal">
           <NavItem
@@ -339,7 +353,7 @@ function Dashboard({ session, currentUser, onLogout }) {
               onAddUser={() => setUserModal(true)}
               onSelect={(id) => {
                 setSelectedUserId(id);
-                setActive("users");
+                setActive(isAdmin ? "users" : "addresses");
               }}
             />
           )}
@@ -371,7 +385,7 @@ function Dashboard({ session, currentUser, onLogout }) {
         <UserModal
           pending={createUser.isPending}
           onClose={() => setUserModal(false)}
-          onSubmit={(payload) => createUser.mutate(payload)}
+          onSubmit={(payload) => createUser.mutateAsync(payload)}
         />
       )}
       {addressModal && (
@@ -766,7 +780,7 @@ function AddressesPage({
             <tbody>
               {addresses.map(({ user, ...address }) => (
                 <tr key={address.id}>
-                  <td>
+                  <td data-label="Endereço">
                     <b>
                       {address.street}, {address.number}
                     </b>
@@ -774,7 +788,7 @@ function AddressesPage({
                       {address.neighborhood} · {address.city}/{address.state}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Usuário">
                     <div className="table-user">
                       <div className="avatar avatar-tiny">
                         {initials(user.name)}
@@ -782,15 +796,15 @@ function AddressesPage({
                       {user.name}
                     </div>
                   </td>
-                  <td>{address.cep}</td>
-                  <td>
+                  <td data-label="CEP">{address.cep}</td>
+                  <td data-label="Status">
                     <span
                       className={`status-dot ${address.primary ? "primary" : ""}`}
                     >
                       {address.primary ? "Principal" : "Secundário"}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Ações">
                     <div className="row-actions">
                       <button
                         onClick={() => onEdit(user.id, address)}
@@ -831,20 +845,25 @@ function UserModal({ pending, onClose, onSubmit }) {
     role: "USER",
   });
   const [error, setError] = useState("");
-  function submit(event) {
+  const [cpfError, setCpfError] = useState("");
+  async function submit(event) {
     event.preventDefault();
+    setError("");
+    setCpfError("");
     if (!form.name)
       return showValidationError(
         setError,
         "Informe o nome completo.",
         '[name="name"]',
       );
-    if (!isValidCpf(form.cpf))
-      return showValidationError(
-        setError,
+    if (!isValidCpf(form.cpf)) {
+      showValidationError(
+        setCpfError,
         "Informe um CPF válido.",
         '[name="cpf"]',
       );
+      return;
+    }
     if (!form.birthDate)
       return showValidationError(
         setError,
@@ -857,7 +876,21 @@ function UserModal({ pending, onClose, onSubmit }) {
         "A senha precisa ter pelo menos 8 caracteres.",
         '[name="new-password"]',
       );
-    onSubmit({ ...form, cpf: formatCpf(form.cpf) });
+    try {
+      await onSubmit({ ...form, cpf: formatCpf(form.cpf) });
+    } catch (reason) {
+      if (/CPF/i.test(reason.message)) {
+        showValidationError(
+          setCpfError,
+          reason.message === "CPF já cadastrado"
+            ? "Este CPF já está cadastrado. Confira o número ou use outro CPF."
+            : reason.message,
+          '[name="cpf"]',
+        );
+      } else {
+        setError(reason.message);
+      }
+    }
   }
   return (
     <Modal title="Novo usuário" onClose={onClose}>
@@ -881,11 +914,19 @@ function UserModal({ pending, onClose, onSubmit }) {
               inputMode="numeric"
               autoComplete="off"
               value={form.cpf}
-              onChange={(event) =>
-                setForm({ ...form, cpf: formatCpf(event.target.value) })
-              }
+              onChange={(event) => {
+                setCpfError("");
+                setForm({ ...form, cpf: formatCpf(event.target.value) });
+              }}
+              aria-invalid={Boolean(cpfError)}
+              aria-describedby={cpfError ? "cpf-error" : undefined}
               placeholder="000.000.000-00"
             />
+            {cpfError && (
+              <small id="cpf-error" className="field-error" role="alert">
+                {cpfError}
+              </small>
+            )}
           </Field>
           <Field label="Data de nascimento" required>
             <input

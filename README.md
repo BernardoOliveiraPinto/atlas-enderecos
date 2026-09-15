@@ -13,7 +13,7 @@ Entrega do teste técnico para cadastro de pessoas e gestão de múltiplos ender
 - Consulta ViaCEP com preenchimento automático e cache durante a sessão.
 - Interface responsiva, navegação por teclado, foco visível, rótulos de formulário e mensagens acessíveis.
 - React Query para cache, invalidação e estados de carregamento das consultas.
-- Componente shadcn/ui em `src/components/ui`, com Radix Slot, CVA, `components.json` e variantes reutilizáveis.
+- Botão no padrão shadcn/ui em `src/components/ui`, construído com Radix Slot e CVA; `components.json` mantém a configuração dos componentes.
 - Docker Compose para subir API e interface juntas.
 - Testes de integração para autenticação, autorização, CPF duplicado e regras de endereço principal.
 
@@ -26,11 +26,15 @@ Entrega do teste técnico para cadastro de pessoas e gestão de múltiplos ender
 
 ## Executar com Docker
 
+O Docker está configurado em `docker-compose.yml` e `backend/Dockerfile`. O Compose cria a imagem da API com Java 17, inicia a interface com Node 20 e conecta ambos pela rede interna (`web` → `api:8080`). Os dados da API ficam no volume nomeado `atlas-data`, persistindo entre reinícios dos contêineres.
+
 ```bash
 docker compose up --build
 ```
 
 Abra [http://localhost:5173](http://localhost:5173). O compose disponibiliza a API na porta `8080` e já aponta a interface para ela.
+
+O Docker é uma forma opcional de executar o projeto. Nesta máquina, a validação foi feita com Java/Maven e Vite locais; o Compose não foi executado porque o Docker CLI não está instalado.
 
 ## Executar localmente
 
@@ -50,8 +54,13 @@ npm install
 npm run dev
 ```
 
-Abra o endereço informado pelo Vite. Por padrão, a interface consome `http://localhost:8080`; para outro ambiente, copie `.env.example` para `.env.local` e altere `VITE_API_URL`.
-Durante o desenvolvimento, o Vite encaminha `/api` para o backend no mesmo endereço da interface. Isso evita bloqueios de cookies e CORS entre `localhost` e `127.0.0.1`.
+Abra o endereço informado pelo Vite, normalmente [http://localhost:5173](http://localhost:5173). Durante o desenvolvimento, a interface chama `/api` no próprio endereço e o Vite encaminha as requisições à API local em `127.0.0.1:8080`. Para apontar o proxy a outra API, copie `.env.example` para `.env.local`, ajuste `VITE_API_URL` e reinicie o Vite. Para uma implantação de produção, configure a URL da API e os cookies para o domínio/HTTPS usado.
+
+### Onde ficam os cadastros
+
+Na execução local, usuários e endereços ficam no banco H2 `backend/data/atlas.mv.db`. Essa pasta está no `.gitignore` e não é enviada ao GitHub por commits de código. Os dois acessos de demonstração acima, por outro lado, fazem parte do código e do README público. No Docker, os cadastros ficam no volume `atlas-data`, separado do arquivo H2 usado na execução local. Portanto, os cadastros criados em um modo não aparecem automaticamente no outro.
+
+As contas de demonstração só são inseridas quando o banco está vazio. Atualizar o código ou enviar commits ao GitHub não apaga nem publica as contas criadas no arquivo H2 local.
 
 ## Testes e qualidade
 
@@ -61,6 +70,8 @@ mvn test
 ```
 
 Os testes cobrem requisição sem autenticação, bloqueio de acesso administrativo para usuário comum, tentativa de alterar endereço de outra pessoa, CPF duplicado e manutenção do único endereço principal.
+
+Última validação local: 8 testes de integração aprovados e `npm run build` concluído. O Compose ainda requer validação em uma máquina com Docker.
 
 Para gerar a versão de produção da interface:
 
