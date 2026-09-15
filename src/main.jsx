@@ -64,7 +64,7 @@ function Root() {
       .catch((reason) => {
         dataClient.logout();
         setSession(null);
-        setError(reason.message);
+        if (reason.status !== 401) setError(reason.message);
       });
   }, [session]);
   if (!session || !currentUser)

@@ -14,9 +14,11 @@ async function request(path, options = {}) {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(
+    const error = new Error(
       body.message || "Não foi possível concluir a operação. Tente novamente.",
     );
+    error.status = response.status;
+    throw error;
   }
   return response.status === 204 ? null : response.json();
 }
@@ -28,6 +30,8 @@ export const dataClient = {
   async logout() {
     try {
       await request("/api/auth/logout", { method: "POST" });
+    } catch {
+      // A sessão pode já ter expirado no servidor; limpar o navegador basta.
     } finally {
       sessionStorage.removeItem(SESSION_KEY);
     }
