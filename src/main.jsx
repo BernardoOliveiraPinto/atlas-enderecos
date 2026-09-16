@@ -327,9 +327,6 @@ function Dashboard({ session, currentUser, onLogout }) {
             </b>
           </div>
           <div className="topbar-actions">
-            <button className="icon-button" aria-label="Notificações">
-              ♧<span className="notification-dot" />
-            </button>
             <button
               className="user-chip"
               onClick={onLogout}
