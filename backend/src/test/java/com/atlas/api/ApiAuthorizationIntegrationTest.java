@@ -56,6 +56,17 @@ class ApiAuthorizationIntegrationTest {
     }
 
     @Test
+    void invalidCepIsRejectedByTheApi() throws Exception {
+        User user = users.findByCpf("11144477735").orElseThrow();
+        String address = "{\"cep\":\"123\",\"number\":\"42\",\"street\":\"Rua de teste\",\"neighborhood\":\"Centro\",\"city\":\"São Paulo\",\"state\":\"SP\",\"primary\":true}";
+        mvc.perform(post("/api/users/" + user.getId() + "/addresses")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("52998224725").roles("ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON).content(address))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("CEP inválido"));
+    }
+
+    @Test
     void deletingPrimaryAddressPromotesAnotherAddress() throws Exception {
         User user = new User(); user.setName("Usuário de teste"); user.setCpf("12345678909"); user.setBirthDate(LocalDate.of(1990, 1, 1)); user.setRole(UserRole.USER); user.setPasswordHash(encoder.encode("Senha@123")); user = users.save(user);
         String first = "{\"cep\":\"01310100\",\"number\":\"1\",\"street\":\"Avenida Paulista\",\"neighborhood\":\"Bela Vista\",\"city\":\"São Paulo\",\"state\":\"SP\",\"primary\":true}";
@@ -100,6 +111,29 @@ class ApiAuthorizationIntegrationTest {
         mvc.perform(post("/api/users/" + user.getId() + "/addresses").with(admin).contentType(MediaType.APPLICATION_JSON).content(first)).andExpect(status().isCreated());
         mvc.perform(post("/api/users/" + user.getId() + "/addresses").with(admin).contentType(MediaType.APPLICATION_JSON).content(second)).andExpect(status().isCreated());
         long primaryCount = users.findById(user.getId()).orElseThrow().getAddresses().stream().filter(address -> address.isPrimaryAddress()).count();
+        org.assertj.core.api.Assertions.assertThat(primaryCount).isEqualTo(1);
+    }
+
+    @Test
+    void normalUserCanChooseTheirOwnPrimaryAddress() throws Exception {
+        User user = users.findByCpf("11144477735").orElseThrow();
+        String second = "{\"cep\":\"01310100\",\"number\":\"10\",\"street\":\"Avenida Paulista\",\"neighborhood\":\"Bela Vista\",\"city\":\"São Paulo\",\"state\":\"SP\",\"primary\":false}";
+        var admin = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("52998224725").roles("ADMIN");
+        var ordinaryUser = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("11144477735").roles("USER");
+        mvc.perform(post("/api/users/" + user.getId() + "/addresses").with(admin).contentType(MediaType.APPLICATION_JSON).content(second))
+            .andExpect(status().isCreated());
+        Long secondAddressId = users.findById(user.getId()).orElseThrow().getAddresses().stream()
+            .filter(address -> !address.isPrimaryAddress()).findFirst().orElseThrow().getId();
+        String makePrimary = second.replace("\"primary\":false", "\"primary\":true");
+        mvc.perform(put("/api/users/" + user.getId() + "/addresses/" + secondAddressId)
+                .with(ordinaryUser).contentType(MediaType.APPLICATION_JSON).content(makePrimary))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/users/" + user.getId()).with(ordinaryUser))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.addresses[?(@.id == " + secondAddressId + ")].primary")
+                .value(org.hamcrest.Matchers.hasItem(true)));
+        long primaryCount = users.findById(user.getId()).orElseThrow().getAddresses().stream()
+            .filter(address -> address.isPrimaryAddress()).count();
         org.assertj.core.api.Assertions.assertThat(primaryCount).isEqualTo(1);
     }
 }

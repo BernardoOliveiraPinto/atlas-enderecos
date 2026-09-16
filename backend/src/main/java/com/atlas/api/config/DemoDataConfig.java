@@ -18,7 +18,7 @@ public class DemoDataConfig {
             User admin = createUser("Marina Costa", "52998224725", "1994-06-18", UserRole.ADMIN, encoder);
             admin.getAddresses().add(createAddress(admin, "01310100", "1578", "Apto 84", "Avenida Paulista", "Bela Vista", "São Paulo", "SP", true));
             User member = createUser("Rafael Nunes", "11144477735", "1991-03-09", UserRole.USER, encoder);
-            member.getAddresses().add(createAddress(member, "22041080", "42", "", "Rua Barão de Ipanema", "Copacabana", "Rio de Janeiro", "RJ", true));
+            member.getAddresses().add(createAddress(member, "22041080", "42", "", "Rua Anita Garibaldi", "Copacabana", "Rio de Janeiro", "RJ", true));
             users.save(admin);
             users.save(member);
         };

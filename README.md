@@ -5,7 +5,7 @@ Entrega do teste técnico para cadastro de pessoas e gestão de múltiplos ender
 ## O que foi entregue
 
 - Login real por CPF e senha, com credenciais protegidas por BCrypt e sessão de servidor; a senha não é salva no navegador.
-- Perfis **ADMIN** e **USER**, com autorização aplicada na API — e não apenas escondida na interface.
+- Perfis **ADMIN** e **USER**, com autorização aplicada na API e não apenas escondida na interface.
 - CPF validado e único no cadastro de usuários.
 - Cadastro, leitura, edição e remoção de endereços.
 - Regra de endereço principal: há no máximo um por usuário; ao escolher outro, o anterior deixa de ser principal; ao remover o principal, outro endereço é promovido automaticamente.
@@ -15,7 +15,7 @@ Entrega do teste técnico para cadastro de pessoas e gestão de múltiplos ender
 - React Query para cache, invalidação e estados de carregamento das consultas.
 - Botão no padrão shadcn/ui em `src/components/ui`, construído com Radix Slot e CVA; `components.json` mantém a configuração dos componentes.
 - Docker Compose para subir API e interface juntas.
-- Testes de integração para autenticação, autorização, CPF duplicado e regras de endereço principal.
+- Testes de integração para autenticação, autorização, CPF e CEP inválidos e regras de endereço principal.
 
 ## Acessos de demonstração
 
@@ -26,6 +26,8 @@ Entrega do teste técnico para cadastro de pessoas e gestão de múltiplos ender
 
 ## Executar com Docker
 
+Pré-requisitos: Docker Desktop com Docker Compose e suporte a contêineres Linux. No Windows, mantenha o Docker Desktop aberto e o WSL 2 ativo. As portas `8080` e `5173` devem estar livres.
+
 O Docker está configurado em `docker-compose.yml` e `backend/Dockerfile`. O Compose cria a imagem da API com Java 17, inicia a interface com Node 20 e conecta ambos pela rede interna (`web` → `api:8080`). Os dados da API ficam no volume nomeado `atlas-data`, persistindo entre reinícios dos contêineres.
 
 ```bash
@@ -34,7 +36,9 @@ docker compose up --build
 
 Abra [http://localhost:5173](http://localhost:5173). O compose disponibiliza a API na porta `8080` e já aponta a interface para ela.
 
-O Docker é uma forma opcional de executar o projeto. Nesta máquina, a validação foi feita com Java/Maven e Vite locais; o Compose não foi executado porque o Docker CLI não está instalado.
+O Compose foi validado no Windows com Docker Desktop e WSL 2: a imagem da API foi construída, os dois contêineres iniciaram, a interface respondeu com HTTP 200 e a API respondeu na porta `8080` (HTTP 401 em `/api/auth/me` sem login, como esperado).
+
+Para parar sem apagar os cadastros, use `docker compose down`. Para iniciar novamente, use `docker compose up -d`. Não use `docker compose down -v` se quiser preservar os dados do volume.
 
 ## Executar localmente
 
@@ -69,9 +73,9 @@ cd backend
 mvn test
 ```
 
-Os testes cobrem requisição sem autenticação, bloqueio de acesso administrativo para usuário comum, tentativa de alterar endereço de outra pessoa, CPF duplicado e manutenção do único endereço principal.
+Os testes cobrem requisição sem autenticação, bloqueio de acesso administrativo para usuário comum, tentativa de alterar endereço de outra pessoa, CPF duplicado, CEP inválido, promoção após exclusão e escolha do endereço principal pelo usuário comum.
 
-Última validação local: 8 testes de integração aprovados e `npm run build` concluído. O Compose ainda requer validação em uma máquina com Docker.
+Última validação: 10 testes de integração aprovados, `npm run build` concluído e execução do Compose verificada com API e interface respondendo. A interface também foi conferida no navegador com os dois perfis, consulta automática de CEP, CPF duplicado, edição de endereço próprio e viewport de 390 px. Os testes de integração podem ser executados com Maven 3.9+ sem Docker.
 
 Para gerar a versão de produção da interface:
 

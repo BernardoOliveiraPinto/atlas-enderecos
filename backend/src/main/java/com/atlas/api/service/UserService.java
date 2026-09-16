@@ -35,9 +35,11 @@ public class UserService {
     @Transactional public UserResponse find(Long id) { accessControl.requireSelfOrAdmin(id); return toResponse(getUser(id)); }
     @Transactional public UserResponse saveAddress(Long userId, Long addressId, AddressRequest request) {
         if (addressId == null) accessControl.requireAdmin(); else accessControl.requireSelfOrAdmin(userId);
+        String cep = digits(request.cep());
+        if (cep.length() != 8) throw new IllegalArgumentException("CEP inválido");
         User user = getUser(userId); Address address = addressId == null ? new Address() : addresses.findById(addressId).orElseThrow(() -> new EntityNotFoundException("Endereço não encontrado"));
         if (address.getUser() != null && !address.getUser().getId().equals(userId)) throw new SecurityException("Acesso negado");
-        address.setUser(user); address.setCep(digits(request.cep())); address.setNumber(request.number()); address.setComplement(request.complement()); address.setStreet(request.street()); address.setNeighborhood(request.neighborhood()); address.setCity(request.city()); address.setState(request.state().toUpperCase());
+        address.setUser(user); address.setCep(cep); address.setNumber(request.number()); address.setComplement(request.complement()); address.setStreet(request.street()); address.setNeighborhood(request.neighborhood()); address.setCity(request.city()); address.setState(request.state().toUpperCase());
         if (!user.getAddresses().contains(address)) user.getAddresses().add(address);
         boolean wasPrimary = address.isPrimaryAddress();
         if (request.primary()) {

@@ -994,16 +994,43 @@ function AddressModal({ users, isAdmin, modal, pending, onClose, onSubmit }) {
   });
   const [lookup, setLookup] = useState(false);
   const [error, setError] = useState("");
-  async function lookupCep() {
+  const lookupIdRef = useRef(0);
+  async function lookupCep(value = form.cep) {
+    const lookupId = ++lookupIdRef.current;
+    const digits = value.replace(/\D/g, "");
     setLookup(true);
     setError("");
     try {
-      setForm({ ...form, ...(await dataClient.lookupCep(form.cep)) });
+      const address = await dataClient.lookupCep(value);
+      if (lookupId !== lookupIdRef.current) return;
+      setForm((current) =>
+        current.cep.replace(/\D/g, "") === digits
+          ? { ...current, ...address }
+          : current,
+      );
     } catch (reason) {
-      showValidationError(setError, reason.message, '[name="cep"]');
+      if (lookupId === lookupIdRef.current)
+        showValidationError(setError, reason.message, '[name="cep"]');
     } finally {
-      setLookup(false);
+      if (lookupId === lookupIdRef.current) setLookup(false);
     }
+  }
+  function changeCep(value) {
+    const nextCep = formatCep(value);
+    const nextDigits = nextCep.replace(/\D/g, "");
+    const previousDigits = form.cep.replace(/\D/g, "");
+    lookupIdRef.current += 1;
+    setLookup(false);
+    setError("");
+    setForm((current) => ({
+      ...current,
+      cep: nextCep,
+      ...(nextDigits !== current.cep.replace(/\D/g, "")
+        ? { street: "", neighborhood: "", city: "", state: "" }
+        : {}),
+    }));
+    if (nextDigits.length === 8 && nextDigits !== previousDigits)
+      lookupCep(nextCep);
   }
   function submit(event) {
     event.preventDefault();
@@ -1038,8 +1065,8 @@ function AddressModal({ users, isAdmin, modal, pending, onClose, onSubmit }) {
     >
       <form onSubmit={submit}>
         <p className="modal-intro">
-          A consulta de CEP completa o local automaticamente e é reutilizada
-          nesta sessão.
+          Ao completar os 8 dígitos do CEP, o local é preenchido
+          automaticamente. A consulta é reutilizada nesta sessão.
         </p>
         <Field label="Usuário">
           <select
@@ -1062,16 +1089,14 @@ function AddressModal({ users, isAdmin, modal, pending, onClose, onSubmit }) {
               inputMode="numeric"
               autoComplete="postal-code"
               value={form.cep}
-              onChange={(event) =>
-                setForm({ ...form, cep: formatCep(event.target.value) })
-              }
+              onChange={(event) => changeCep(event.target.value)}
               placeholder="00000-000"
             />
           </Field>
           <Button
             variant="secondary"
             className="lookup-button"
-            onClick={lookupCep}
+            onClick={() => lookupCep()}
             disabled={lookup}
           >
             {lookup ? "Consultando…" : "Consultar CEP"}
@@ -1102,14 +1127,16 @@ function AddressModal({ users, isAdmin, modal, pending, onClose, onSubmit }) {
             />
           </Field>
         </div>
-        <div className="location-preview">
+        <div className="location-preview" aria-live="polite">
           <span aria-hidden="true">⌖</span>
           <div>
             <b>{form.street || "O logradouro aparecerá aqui"}</b>
             <small>
               {form.neighborhood
                 ? `${form.neighborhood} · ${form.city}/${form.state}`
-                : "Consulte o CEP para preencher"}
+                : lookup
+                  ? "Consultando CEP…"
+                  : "Informe um CEP válido para preencher"}
             </small>
           </div>
         </div>
